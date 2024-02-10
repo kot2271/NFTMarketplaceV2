@@ -6,17 +6,27 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./mock/MyNFTMock.sol";
 
+/**
+ * @title NFTMarketplaceV2
+ * @dev A marketplace contract for buying, selling, and auctioning NFTs
+ */
 contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
+    /// @notice Constant for artist role
     bytes32 public constant ARTIST_ROLE = keccak256("ARTIST_ROLE");
+
+    /// @notice Constant for admin role
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
+    /// @notice Constant for auction duration
     uint24 public immutable AUCTION_DURATION = 3 days;
 
+    /// @notice The structure of a Collection
     struct Collection {
         address creator;
         MyNFTMock nftContract;
     }
 
+    /// @notice The structure of a Listing
     struct Listing {
         uint96 tokenId;
         address seller;
@@ -24,6 +34,7 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         address paymentToken;
     }
 
+    /// @notice The structure of an Auction
     struct Auction {
         uint96 tokenId;
         address seller;
@@ -36,33 +47,46 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         uint64 endTime;
     }
 
+    /// @notice The mapping of collections
     mapping(uint32 => Collection) public collections;
+
+    /// @notice The mapping of listings
     mapping(uint96 => Listing) public listings;
+
+    /// @notice The mapping of auctions
     mapping(uint96 => Auction) public auctions;
 
+    /// @dev The id of the next collection
     uint32 private _collectId = 0;
+
+    /// @dev The id of the next token
     uint96 private _itemIds = 0;
 
+    /// @notice Event emitted when a collection is created
     event CollectionCreated(
         uint32 indexed collectionId,
         address indexed creator,
         address indexed nftContract
     );
 
+    /// @notice Event emitted when an item is listed
     event ItemListed(
         uint96 indexed tokenId,
         uint96 price,
         address indexed paymentToken
     );
 
+    /// @notice Event emitted when an item is bought
     event ItemBought(
         uint96 indexed tokenId,
         address indexed buyer,
         uint96 price
     );
 
+    /// @notice Event emitted when an item is canceled
     event ListingCanceled(uint32 indexed collectionId, uint96 indexed tokenId);
 
+    /// @notice Event emitted when an auction is created
     event AuctionCreated(
         uint96 indexed tokenId,
         address indexed paymentToken,
@@ -70,18 +94,23 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         uint96 step
     );
 
+    /// @notice Event emitted when an auction is bid
     event BidPlaced(uint96 indexed tokenId, address indexed bidder, uint96 bid);
 
+    /// @notice Event emitted when an auction is ended
     event AuctionEnded(
         uint96 indexed tokenId,
         address indexed winner,
         uint96 winningBid
     );
 
+    /// @notice Event emitted when an auction is canceled
     event AuctionCanceled(uint96 indexed tokenId);
 
+    /// @notice Event emitted when an item is created
     event ItemCreated(uint96 indexed tokenId, address indexed owner);
 
+    /// @notice Errors
     error MustOwnToken();
     error ItemNotListed();
     error InsufficientEthSent();
@@ -105,6 +134,9 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
     error MustHaveAdminRoleToGrant();
     error RefundFailed();
 
+    /**
+     * @notice Modifier to check if the sender is the owner of the token
+     */
     modifier onlyTokenOwner(uint32 _collectionId, uint96 _tokenId) {
         if (
             collections[_collectionId].nftContract.ownerOf(_tokenId) !=
@@ -113,12 +145,20 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         _;
     }
 
+    /**
+     * @notice Constructor that grants the ADMIN_ROLE to the deployer of the contract
+     */
     constructor() {
         _grantRole(ADMIN_ROLE, msg.sender);
     }
 
     receive() external payable {}
 
+    /**
+     * @notice Function to allow buying an item from a collection
+     * @param _collectionId The ID of the collection
+     * @param _tokenId The ID of the token
+     */
     function buyItem(
         uint32 _collectionId,
         uint96 _tokenId
@@ -150,6 +190,12 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         emit ItemBought(_tokenId, msg.sender, price);
     }
 
+    /**
+     * @notice Allows a user to place a bid on a token in an auction.
+     * @param _collectionId The ID of the collection containing the token.
+     * @param _tokenId The ID of the token being bid on.
+     * @param _bid The amount of the bid.
+     */
     function makeBid(
         uint32 _collectionId,
         uint96 _tokenId,
@@ -189,6 +235,11 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         emit BidPlaced(_tokenId, msg.sender, _bid);
     }
 
+    /**
+     * @notice Function to create a new NFT collection
+     * @param _name The name of the collection
+     * @param _symbol The symbol of the collection
+     */
     function createCollection(
         string calldata _name,
         string calldata _symbol
@@ -204,6 +255,11 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         emit CollectionCreated(_collectId, msg.sender, address(nftContract));
     }
 
+    /**
+     * @notice Function to create a new NFT item
+     * @param _collectionId The ID of the collection
+     * @param _tokenURI The URI of the token
+     */
     function createItem(
         uint32 _collectionId,
         string calldata _tokenURI
@@ -226,6 +282,13 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         emit ItemCreated(_itemIds, msg.sender);
     }
 
+    /**
+     * @notice List an item for sale in the marketplace
+     * @param _collectionId The ID of the collection
+     * @param _tokenId The ID of the token
+     * @param _price The price of the item
+     * @param _tokenAddress The address of the payment token
+     */
     function listItem(
         uint32 _collectionId,
         uint96 _tokenId,
@@ -242,6 +305,11 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         emit ItemListed(_tokenId, _price, _tokenAddress);
     }
 
+    /**
+     * @notice Cancel a listing for a specific token
+     * @param _collectionId The ID of the collection
+     * @param _tokenId The ID of the token
+     */
     function cancelListing(
         uint32 _collectionId,
         uint96 _tokenId
@@ -250,6 +318,14 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         emit ListingCanceled(_collectionId, _tokenId);
     }
 
+    /**
+     * @notice List a token on auction
+     * @param _collectionId The ID of the collection
+     * @param _tokenId The ID of the token
+     * @param _price The initial price of the auction
+     * @param _step The minimum bid increment
+     * @param _tokenAddress The address of the payment token
+     */
     function listItemOnAuction(
         uint32 _collectionId,
         uint96 _tokenId,
@@ -272,6 +348,11 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         emit AuctionCreated(_tokenId, _tokenAddress, _price, _step);
     }
 
+    /**
+     * @notice Finish the auction for the given token ID and collection ID, transferring the NFT to the highest bidder
+     * @param _collectionId The ID of the collection
+     * @param _tokenId The ID of the token
+     */
     function finishAuction(
         uint32 _collectionId,
         uint96 _tokenId
@@ -295,6 +376,11 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         delete highestBid;
     }
 
+    /**
+     * @notice Cancel the auction for the given token ID and collection ID
+     * @param _collectionId The ID of the collection
+     * @param _tokenId The ID of the token
+     */
     function cancelAuction(
         uint32 _collectionId,
         uint96 _tokenId
@@ -309,11 +395,20 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
         emit AuctionCanceled(_tokenId);
     }
 
+    /**
+     * @notice Grant the artist role to the given user
+     * @param user The address of the user to whom the artist role is to be granted
+     */
     function grantArtistRole(address user) external {
         if (!hasRole(ADMIN_ROLE, msg.sender)) revert MustHaveAdminRoleToGrant();
         _grantRole(ARTIST_ROLE, user);
     }
 
+    /**
+     * @notice Refund the highest bidder after the auction ends for the given token ID and contributor address
+     * @param _tokenId The ID of the token
+     * @param _contributor The address of the contributor
+     */
     function _stakeRefunds(uint96 _tokenId, address _contributor) private {
         if (auctions[_tokenId].paymentToken == address(0)) {
             (bool refundSuccess, ) = _contributor.call{
