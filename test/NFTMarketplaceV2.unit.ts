@@ -107,6 +107,18 @@ describe("NFTMarketplaceV2", () => {
         "MustBeCollectionCreator"
       );
     });
+
+    it.only("should create multiple items in the same collection correctly", async () => {
+      await nftMarketplace.connect(artist).createCollection("collection1", "c1");
+      await nftMarketplace.connect(artist).createItem(collectionId, tokenURI);
+      const tokenURI2 = `https://ipfs.io/ipfs/QmXWCpuTCHeCKK19vTWUHArzUjDtv3SJss5LRdy8YZ2rSA?filename=2.png`;
+      await nftMarketplace.connect(artist).createItem(collectionId, tokenURI2);
+      const tokenURI3 = `https://ipfs.io/ipfs/QmXWCpuTCHeCKK19vTWUHArzUjDtv3SJss5LRdy8YZ2rSA?filename=3.png`;
+      await expect(
+        nftMarketplace.connect(artist).createItem(collectionId, tokenURI3)
+      ).to.emit(nftMarketplace, "ItemCreated")
+        .withArgs(tokenId.add(2), artist.address);
+    });
   });
 
   describe("listItem", () => {

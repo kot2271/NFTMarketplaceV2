@@ -12,10 +12,10 @@ import "./mock/MyNFTMock.sol";
  */
 contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
     /// @notice Constant for artist role
-    bytes32 public constant ARTIST_ROLE = keccak256("ARTIST_ROLE");
+    bytes32 public constant ARTIST_ROLE = 0x877a78dc988c0ec5f58453b44888a55eb39755c3d5ed8d8ea990912aa3ef29c6;
 
     /// @notice Constant for admin role
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant ADMIN_ROLE = 0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775;
 
     /// @notice Constant for auction duration
     uint24 public immutable AUCTION_DURATION = 3 days;
@@ -57,10 +57,10 @@ contract NFTMarketplaceV2 is ReentrancyGuard, AccessControl {
     mapping(uint96 => Auction) public auctions;
 
     /// @dev The id of the next collection
-    uint32 private _collectId = 0;
+    uint32 private _collectId;
 
     /// @dev The id of the next token
-    uint96 private _itemIds = 0;
+    uint96 private _itemIds;
 
     /// @notice Event emitted when a collection is created
     event CollectionCreated(
